@@ -70,6 +70,8 @@ app.post('api/register/registerUser', async (req, res) => {
 });
 
 // Hashear textos
+
+
 function HashText(correo){
     const hash = crypto.createHash('sha256');
     hash.update(correo);
