@@ -22,8 +22,8 @@ admin.initializeApp({
 app.listen(process.env.PORT, () => {});
 
 const tursoClient = createClient({
-    url: process.env.TURSO_URL,
     authToken: process.env.AUTH_TOKEN,
+    url: "libsql://planify-planify.turso.io",
 });
 
 const db = admin.firestore();
@@ -84,7 +84,7 @@ app.post('/api/register', async (req, res) => {
             correo: req.body.correo,
             nombre: req.body.nombre,
             nombre_usuario: req.body.nombre_usuario,
-            verificacion: req.body.verificacion,
+            verificacion: false,
             quedadas: []
         }
 
