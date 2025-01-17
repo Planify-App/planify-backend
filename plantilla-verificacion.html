@@ -1,0 +1,74 @@
+<!-- plantilla-verificacion.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificación de Cuenta - Planify</title>
+    <style>
+        html {
+            padding: 0;
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        .container {
+            max-width: 100%;
+            min-height: 95dvh;
+            height: fit-content;
+            background-color: #373737;
+            color: white;
+            padding: 2em;
+        }
+        article {
+            max-width: fit-content;
+            margin: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .button-container {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .button {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            flex-grow: 1;
+        }
+        .button:hover {
+            filter: saturate(2);
+            transform: scale(1.05);
+            transition: all 0.3s;
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<main class="container">
+    <article>
+        <header>
+            <h1>¡Hola, {{nombre}}!</h1>
+            <p>Gracias por unirte a Planify, la aplicación definitiva para gestionar tus quedadas, eventos y viajes en grupo. Estamos emocionados de que formes parte de nuestra comunidad.</p>
+            <p>Para continuar con tu registro, necesitamos que verifiques tu correo electrónico. Por favor, haz clic en el enlace de abajo para completar el proceso y empezar a disfrutar de todas las funcionalidades que Planify tiene para ofrecerte.</p>
+        </header>
+        <div class="button-container">
+            <a href="{{enlace_verificacion}}" class="button">Verificar mi cuenta</a>
+        </div>
+        <footer>
+            <p>Si no solicitaste esta verificación, ignora este correo.</p>
+            <p>Al verificar tu cuenta, podrás acceder a todas las herramientas que te ayudarán a organizar eventos, dividir gastos de manera justa, comunicarte con tu grupo y mucho más. Además, si decides probar nuestra versión Pro, podrás disfrutar de funcionalidades exclusivas como la generación automática de recetas y recomendaciones personalizadas de comida y lugares.</p>
+            <small>Este es un correo automático, por favor no respondas.</small>
+        </footer>
+    </article>
+</main>
+</body>
+</html>
