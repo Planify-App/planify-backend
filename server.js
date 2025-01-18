@@ -8,6 +8,9 @@ const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
 const ejs = require('ejs');
+require('dotenv').config();
+
+
 const { Client, createClient} = require('@libsql/client');
 
 const app = express();
@@ -21,6 +24,7 @@ admin.initializeApp({
 
 app.listen(process.env.PORT, () => {});
 
+
 const tursoClient = createClient({
     authToken: process.env.AUTH_TOKEN,
     url: "libsql://planify-planify.turso.io",
@@ -28,7 +32,7 @@ const tursoClient = createClient({
 
 const db = admin.firestore();
 
-const noReplyEmail = 'no-reply@eduni.dev';
+const noReplyEmail = 'no-reply@gmail.com';
 const subjectEmail = 'Verificación de Cuenta - Planify';
 
 let transporter = nodemailer.createTransport({
@@ -49,7 +53,17 @@ const data = {
 
 const htmlContent = ejs.render(htmlTemplate, data);
 
-app.get('/api/login/verification', async (req, res) => {
+function authenticateAPIKey(req, res, next) {
+    const apiKey = req.header('x-api-key');
+
+    if (!apiKey || apiKey !== process.env.API_KEY) {
+        return res.status(403).json({ message: 'Acceso no autorizado' });
+    }
+
+    next();
+}
+
+app.get('/api/login/verification', authenticateAPIKey, async (req, res) => {
     try {
         const correoHash = HashText(req.body.correo)
         const contrasena = HashText(req.body.contrasena)
@@ -69,47 +83,60 @@ app.get('/api/login/verification', async (req, res) => {
     }
 })
 
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authenticateAPIKey, async (req, res) => {
     try {
-        const mailOptions = {
-            from: noReplyEmail,
-            to: req.body.correo,
-            subject: subjectEmail,
-            html: htmlContent
+        const data = {
+            nombre: req.body.nombre,
+            enlace_verificacion: `https://planify.eduni.dev/verificar?token=1234`
         };
 
-        const correoHash = HashText(req.body.correo);
-        const infoUsuario = {
-            contrasena: HashText(req.body.contrasena),
-            correo: req.body.correo,
-            nombre: req.body.nombre,
-            nombre_usuario: req.body.nombre_usuario,
-            verificacion: false,
-            quedadas: []
-        }
+        ejs.renderFile(templatePath, data, async (err, htmlContent) => {
+            if (err) {
+                console.log("Error al renderizar la plantilla: ", err);
+                res.status(500).json({ error: "Error al procesar el correo de verificación" });
+            }
 
-        const usuariosSnapshot = await db.collection('Usuarios').doc(correoHash).get();
-        if (usuariosSnapshot.exists) {
-            res.json({ status: false, message: "El usuario ya existe" });
-        } else {
-            await db.collection('Usuarios').doc(correoHash).set(infoUsuario);
-            res.json({ status: true, message: "Usuario registrado" });
+            const mailOptions = {
+                from: noReplyEmail,
+                to: req.body.correo,
+                subject: subjectEmail,
+                html: htmlContent
+            };
 
-            await transporter.sendMail(mailOptions, (error, info) => {
-                if (error) {
-                    console.log('Error al enviar el correo: ', error);
-                } else {
-                    console.log('Correo enviado: ' + info.response);
-                }
-            });
-        }
+            const correoHash = HashText(req.body.correo);
+            const infoUsuario = {
+                contrasena: HashText(req.body.contrasena),
+                correo: req.body.correo,
+                nombre: req.body.nombre,
+                nombre_usuario: req.body.nombre_usuario,
+                verificacion: false,
+                quedadas: []
+            };
+
+            const usuariosSnapshot = await db.collection('Usuarios').doc(correoHash).get();
+            if (usuariosSnapshot.exists) {
+                res.json({ status: false, message: "El usuario ya existe" });
+            } else {
+                await db.collection('Usuarios').doc(correoHash).set(infoUsuario);
+
+                await transporter.sendMail(mailOptions, (error, info) => {
+                    if (error) {
+                        console.log('Error al enviar el correo: ', error);
+                    } else {
+                        console.log('Correo enviado: ' + info.response);
+                    }
+                });
+                res.json({ status: true, message: "Usuario registrado" });
+            }
+        });
     } catch (error) {
         console.error("Error al registrar usuario:", error);
         res.status(500).json({ error: "Error al registrar usuario" });
     }
 });
 
-app.get('/api/getQuedadasUser', async (req, res) => {
+
+app.get('/api/getQuedadasUser', authenticateAPIKey, async (req, res) => {
     try {
         const correoHash = HashText(req.body.correo);
         const usuariosSnapshot = await db.collection('Usuarios').doc(correoHash).get();
@@ -136,7 +163,7 @@ app.get('/api/getQuedadasUser', async (req, res) => {
     }
 });
 
-app.get('/api/getQuedadaById', async (req, res) => {
+app.get('/api/getQuedadaById', authenticateAPIKey, async (req, res) => {
     try {
         const idQuedada = req.body.id;
         const query = `SELECT * FROM quedadas WHERE id = ?`;
@@ -151,7 +178,7 @@ app.get('/api/getQuedadaById', async (req, res) => {
     }
 });
 
-app.get('/api/getEventosUser', async (req, res) => {
+app.get('/api/getEventosUser', authenticateAPIKey, async (req, res) => {
     try {
         const correoHash = HashText(req.body.correo);
         const usuariosSnapshot = await db.collection('Usuarios').doc(correoHash).get();
@@ -178,7 +205,7 @@ app.get('/api/getEventosUser', async (req, res) => {
     }
 });
 
-app.get('/api/getUsersQuedada', async (req, res) => {
+app.get('/api/getUsersQuedada', authenticateAPIKey, async (req, res) => {
     try {
         const idQuedada = req.body.id;
 
