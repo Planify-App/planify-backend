@@ -32,26 +32,21 @@ const tursoClient = createClient({
 
 const db = admin.firestore();
 
-const noReplyEmail = 'no-reply@gmail.com';
+const noReplyEmail = '"Planify" <no-reply@eduni.dev>';
 const subjectEmail = 'Verificación de Cuenta - Planify';
 
 let transporter = nodemailer.createTransport({
-    service: 'gmail',
+    service: 'smtp',
+    host: 'smtp.dondominio.com',
+    port: 465,
+    secure: true,
     auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
     }
 });
 
 const templatePath = path.join(__dirname, 'plantilla-verificacion.html');
-const htmlTemplate = fs.readFileSync(templatePath, 'utf-8');
-
-const data = {
-    nombre: 'TEST',
-    enlace_verificacion: `https://planify.eduni.dev/verificar?token=1234`
-};
-
-const htmlContent = ejs.render(htmlTemplate, data);
 
 function authenticateAPIKey(req, res, next) {
     const apiKey = req.header('x-api-key');
@@ -63,18 +58,42 @@ function authenticateAPIKey(req, res, next) {
     next();
 }
 
-app.get('/api/login/verification', authenticateAPIKey, async (req, res) => {
+app.post('/api/verification', authenticateAPIKey, async (req, res) => {
+    try {
+        const userToken = req.body.token
+
+        const usuariosSnapshot = await db.collection('Usuarios').doc(userToken).get();
+
+        if (!usuariosSnapshot.exists) {
+            return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+
+        await db.collection('Usuarios').doc(userToken).update({
+            verificacion: true
+        });
+
+        const nombreUsuario = usuariosSnapshot.data().nombre_usuario;
+
+        res.status(200).json({ message: "Usuario " + nombreUsuario + " verificado con éxito" });
+
+    } catch (error) {
+        console.error("Error al obtener usuarios:", error);
+        res.status(500).json({ error: "Error al obtener usuarios" });
+    }
+})
+
+app.get('/api/login', authenticateAPIKey, async (req, res) => {
     try {
         const correoHash = HashText(req.body.correo)
         const contrasena = HashText(req.body.contrasena)
 
         const usuariosSnapshot = await db.collection('Usuarios').doc(correoHash).get();
-        if (usuariosSnapshot.data().contrasena !== contrasena) {
-            res.json({status: false, message: "Contraseña incorrecta"});
-        }else if (usuariosSnapshot.data().verificacion === false){
-            res.json({status: false, message: "Usuario no verificado"});
-        }else {
-            res.json({ status: true, message: "Usuario verificado" });
+        if (usuariosSnapshot.data().contrasena === contrasena && usuariosSnapshot.data().correo === correoHash && usuariosSnapshot.data().verificacion === true) {
+            res.json({ status: true, message: "Sesión iniciada con éxito" });
+        } else if (usuariosSnapshot.data().verificacion === false){
+            res.json({status: false, message: "Este usuario no está verificado"});
+        } else {
+            res.json({status: false, message: "Contraseña o correo electrónico incorrectos"});
         }
 
     }catch (error) {
@@ -86,13 +105,12 @@ app.get('/api/login/verification', authenticateAPIKey, async (req, res) => {
 app.post('/api/register', authenticateAPIKey, async (req, res) => {
     try {
         const data = {
-            nombre: req.body.nombre,
-            enlace_verificacion: `https://planify.eduni.dev/verificar?token=1234`
+            name: req.body.nombre,
+            verification_link: `https://planify.eduni.dev/verificar?token=${HashText(req.body.correo)}`
         };
 
         ejs.renderFile(templatePath, data, async (err, htmlContent) => {
             if (err) {
-                console.log("Error al renderizar la plantilla: ", err);
                 res.status(500).json({ error: "Error al procesar el correo de verificación" });
             }
 
@@ -115,7 +133,7 @@ app.post('/api/register', authenticateAPIKey, async (req, res) => {
 
             const usuariosSnapshot = await db.collection('Usuarios').doc(correoHash).get();
             if (usuariosSnapshot.exists) {
-                res.json({ status: false, message: "El usuario ya existe" });
+                res.json({ status: false, message: "Este correo electrónico ya ha sido registrado en Planify" });
             } else {
                 await db.collection('Usuarios').doc(correoHash).set(infoUsuario);
 
@@ -126,12 +144,12 @@ app.post('/api/register', authenticateAPIKey, async (req, res) => {
                         console.log('Correo enviado: ' + info.response);
                     }
                 });
-                res.json({ status: true, message: "Usuario registrado" });
+                res.json({ status: true, message: "Usuario " + req.body.nombre_usuario + " registrado con éxito" });
             }
         });
     } catch (error) {
         console.error("Error al registrar usuario:", error);
-        res.status(500).json({ error: "Error al registrar usuario" });
+        res.status(500).json({ error: "Error al registrar usuario: " + req.body.nombre_usuario });
     }
 });
 
@@ -233,8 +251,8 @@ app.get('/api/getUsersQuedada', authenticateAPIKey, async (req, res) => {
     }
 });
 
-function HashText(correo){
+function HashText(text){
     const hash = crypto.createHash('sha256');
-    hash.update(correo);
+    hash.update(text);
     return hash.digest('hex');
 }
